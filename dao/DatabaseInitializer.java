@@ -1,6 +1,8 @@
+
 package dao;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -10,6 +12,10 @@ public class DatabaseInitializer {
         try (Connection connection = DatabaseConnection.getConnection();
              Statement statement = connection.createStatement()) {
 
+            // Enable foreign key support
+            statement.execute("PRAGMA foreign_keys = ON");
+
+            // USERS TABLE
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,6 +27,7 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            // MEMBERS TABLE
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS members (
                     member_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +39,7 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            // MEMBERSHIPS TABLE
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS memberships (
                     membership_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,6 +54,7 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            // FITNESS INFORMATION TABLE
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS fitness_information (
                     fitness_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +69,7 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            // AUDIT LOGS TABLE
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS audit_logs (
                     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,11 +82,24 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            // CREATE DEFAULT ADMIN ACCOUNT IF IT DOES NOT EXIST
+            String adminSql = """
+                INSERT OR IGNORE INTO users
+                    (username, password, full_name, role, status)
+                VALUES
+                    ('admin', 'Admin123', 'System Administrator',
+                     'Administrator', 'APPROVED')
+                """;
+
+            statement.executeUpdate(adminSql);
+
             System.out.println("Database initialized successfully.");
+            System.out.println("Default Administrator account is ready.");
 
         } catch (SQLException e) {
             System.err.println("Database initialization failed: "
                     + e.getMessage());
+
             throw new IllegalStateException(
                     "Cannot start without database initialization.", e);
         }

@@ -58,7 +58,7 @@ public class Authentication {
         System.out.println("Role: " + user.getRole());
 
         // The existing ConsoleMenu still handles gym features.
-        new ConsoleMenu().start();
+        new ConsoleMenu(userDao, scanner, user).start();
     }
 
     private void register() throws SQLException {
