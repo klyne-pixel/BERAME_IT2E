@@ -1,3 +1,4 @@
+
 package ui;
 
 import dao.UserDao;
@@ -11,116 +12,274 @@ public class AdminMenu {
 
     private final UserDao userDao;
     private final Scanner scanner;
+    private final User currentAdmin;
 
-    public AdminMenu(UserDao userDao, Scanner scanner) {
+    public AdminMenu(UserDao userDao, Scanner scanner, User currentAdmin) {
         this.userDao = userDao;
         this.scanner = scanner;
+        this.currentAdmin = currentAdmin;
     }
 
     public void start() {
+
         boolean running = true;
 
         while (running) {
-            System.out.println("\n================================");
-            System.out.println("       ADMIN USER MENU");
-            System.out.println("================================");
-            System.out.println("1. View All System Users");
-            System.out.println("2. View Pending Registrations");
-            System.out.println("3. Approve User Account");
-            System.out.println("0. Back");
-            System.out.print("Choose an option: ");
 
-            String choice = scanner.nextLine();
+            System.out.println("\n========== ADMIN MENU ==========");
+            System.out.println("1. View All Users");
+            System.out.println("2. View Pending Users");
+            System.out.println("3. Approve User Account");
+            System.out.println("4. Update User Role and Status");
+            System.out.println("0. Back");
+
+            int choice = readIntInput("Choose an option (0 to cancel): ");
 
             try {
                 switch (choice) {
-                    case "1" -> viewAllUsers();
-                    case "2" -> viewPendingUsers();
-                    case "3" -> approveUser();
-                    case "0" -> running = false;
+
+                    case 1 -> viewAllUsers();
+
+                    case 2 -> viewPendingUsers();
+
+                    case 3 -> approveUser();
+
+                    case 4 -> updateUser();
+
+                    case 0 -> running = false;
+
                     default -> System.out.println("Invalid option.");
                 }
+
             } catch (SQLException e) {
                 System.out.println("Database error: " + e.getMessage());
             }
         }
     }
 
+    // VIEW ALL USERS
     private void viewAllUsers() throws SQLException {
+
         List<User> users = userDao.getAllUsers();
 
-        System.out.println("\nALL SYSTEM USERS");
+        System.out.println("\n========== ALL USERS ==========");
+
         displayUsers(users);
     }
 
+    // VIEW PENDING USERS
     private void viewPendingUsers() throws SQLException {
+
         List<User> users = userDao.getPendingUsers();
 
-        System.out.println("\nPENDING REGISTRATIONS");
+        System.out.println("\n========== PENDING USERS ==========");
+
         displayUsers(users);
     }
 
+    // DISPLAY USER TABLE
+    private void displayUsers(List<User> users) {
+
+        if (users.isEmpty()) {
+            System.out.println("No users found.");
+            return;
+        }
+
+        System.out.println("+-----+-----------------+----------------+------------+");
+        System.out.printf("| %-3s | %-15s | %-14s | %-10s |%n",
+                "ID", "USERNAME", "ROLE", "STATUS");
+        System.out.println("+-----+-----------------+----------------+------------+");
+
+        for (User user : users) {
+            System.out.printf("| %-3d | %-15s | %-14s | %-10s |%n",
+                    user.getId(),
+                    user.getUsername(),
+                    user.getRole(),
+                    user.getStatus());
+        }
+
+        System.out.println("+-----+-----------------+----------------+------------+");
+    }
+
+    // APPROVE USER
     private void approveUser() throws SQLException {
+
         List<User> pendingUsers = userDao.getPendingUsers();
 
-        if (pendingUsers.isEmpty()) {
-            System.out.println("No pending accounts.");
-            return;
-        }
-
-        System.out.println("\nPENDING USERS");
+        System.out.println("\n========== PENDING USERS ==========");
         displayUsers(pendingUsers);
 
-        System.out.print("\nEnter User ID to approve (0 to cancel): ");
-        String input = scanner.nextLine();
-
-        if (input.equals("0")) {
-            System.out.println("Approval cancelled.");
+        if (pendingUsers.isEmpty()) {
             return;
         }
 
-        try {
-            int userId = Integer.parseInt(input);
+        int userId = readIntInput("Enter User ID to approve (0 to cancel): ");
 
-            boolean exists = pendingUsers.stream()
-                    .anyMatch(user -> user.getId() == userId);
+        if (userId == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
 
-            if (!exists) {
-                System.out.println("User ID not found in pending registrations.");
-                return;
-            }
+        boolean exists = pendingUsers.stream()
+                .anyMatch(user -> user.getId() == userId);
 
-            if (userDao.approveUser(userId)) {
-                System.out.println("Account approved successfully!");
-            } else {
-                System.out.println("Account approval failed.");
-            }
+        if (!exists) {
+            System.out.println("User ID not found in pending users.");
+            return;
+        }
 
-        } catch (NumberFormatException e) {
-            System.out.println("Please enter a valid ID.");
+        if (userDao.approveUser(userId)) {
+            System.out.println("User account approved successfully!");
+        } else {
+            System.out.println("Approval failed.");
         }
     }
 
-    private void displayUsers(List<User> users) {
-        String border = "+-------+-----------------+--------------+------------+";
+    // UPDATE USER
+    private void updateUser() throws SQLException {
 
-        System.out.println(border);
-        System.out.printf("| %-5s | %-15s | %-12s | %-10s |%n",
-                "ID", "USERNAME", "ROLE", "STATUS");
-        System.out.println(border);
+        List<User> users = userDao.getAllUsers();
+
+        System.out.println("\n========== UPDATE USER ==========");
+        displayUsers(users);
 
         if (users.isEmpty()) {
-            System.out.printf("| %-51s |%n", "No users found.");
-        } else {
-            for (User user : users) {
-                System.out.printf("| %-5d | %-15s | %-12s | %-10s |%n",
-                        user.getId(),
-                        user.getUsername(),
-                        user.getRole(),
-                        user.getStatus());
+            return;
+        }
+
+        int userId = readIntInput("Enter User ID to update (0 to cancel): ");
+
+        if (userId == 0) {
+            System.out.println("Update cancelled.");
+            return;
+        }
+
+        User targetUser = null;
+
+        for (User user : users) {
+            if (user.getId() == userId) {
+                targetUser = user;
+                break;
             }
         }
 
-        System.out.println(border);
+        if (targetUser == null) {
+            System.out.println("User ID not found.");
+            return;
+        }
+
+        // SELF-EDIT RESTRICTION
+        if (targetUser.getId() == currentAdmin.getId()) {
+            System.out.println(
+                    "WARNING: Modifying the currently active admin account is restricted."
+            );
+            return;
+        }
+
+        System.out.println("Selected User: " + targetUser.getUsername());
+
+        String newRole = readValidRole();
+
+        if (newRole == null) {
+            System.out.println("Update cancelled.");
+            return;
+        }
+
+        String newStatus = readValidStatus();
+
+        if (newStatus == null) {
+            System.out.println("Update cancelled.");
+            return;
+        }
+
+        boolean updated = userDao.updateUserRoleAndStatus(
+                userId, newRole, newStatus
+        );
+
+        if (updated) {
+            System.out.println("User role and status updated successfully!");
+        } else {
+            System.out.println("Update failed. User may no longer exist.");
+        }
+    }
+
+    // VALIDATE INTEGER INPUT
+    private int readIntInput(String prompt) {
+
+        while (true) {
+
+            System.out.print(prompt);
+
+            String input = scanner.nextLine().trim();
+
+            try {
+                return Integer.parseInt(input);
+
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter numbers only.");
+            }
+        }
+    }
+
+    // VALIDATE ROLE
+    private String readValidRole() {
+
+        while (true) {
+
+            System.out.println("\nAvailable Roles:");
+            System.out.println("1. ADMINISTRATOR");
+            System.out.println("2. STAFF");
+            System.out.println("3. MANAGER");
+            System.out.println("0. Cancel");
+
+            int choice = readIntInput("Choose new role: ");
+
+            switch (choice) {
+
+                case 1:
+                    return "ADMINISTRATOR";
+
+                case 2:
+                    return "STAFF";
+
+                case 3:
+                    return "MANAGER";
+
+                case 0:
+                    return null;
+
+                default:
+                    System.out.println("Invalid role. Try again.");
+            }
+        }
+    }
+
+    // VALIDATE STATUS
+    private String readValidStatus() {
+
+        while (true) {
+
+            System.out.println("\nAvailable Status:");
+            System.out.println("1. APPROVED");
+            System.out.println("2. PENDING");
+            System.out.println("0. Cancel");
+
+            int choice = readIntInput("Choose new status: ");
+
+            switch (choice) {
+
+                case 1:
+                    return "APPROVED";
+
+                case 2:
+                    return "PENDING";
+
+                case 0:
+                    return null;
+
+                default:
+                    System.out.println("Invalid status. Try again.");
+            }
+        }
     }
 }

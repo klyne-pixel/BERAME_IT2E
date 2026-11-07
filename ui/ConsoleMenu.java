@@ -9,8 +9,8 @@ import java.util.Scanner;
 
 public class ConsoleMenu {
 
-    private final Scanner scanner;
     private final UserDao userDao;
+    private final Scanner scanner;
     private final MemberDao memberDao;
     private final MembershipDao membershipDao;
     private final FitnessDao fitnessDao;
@@ -31,79 +31,112 @@ public class ConsoleMenu {
         this.auditLogDao = new AuditLogDao();
     }
 
-    // MAIN MENU - NO SECOND LOGIN
+    // MAIN MENU
     public void start() {
-
-        System.out.println("\n==================================");
-        System.out.println(" GYM MEMBERSHIP AND FITNESS SYSTEM");
-        System.out.println("==================================");
-        System.out.println("Welcome, " + currentUser.getUsername() + "!");
-        System.out.println("Role: " + currentUser.getRole());
 
         boolean running = true;
 
-        while (running) {
-            showMenu();
+        recordAction("Logged in");
 
-            System.out.print("Choose an option: ");
-            String choice = scanner.nextLine();
+        while (running) {
+
+            displayMenu();
+
+            int choice = readIntInput("Choose an option: ");
 
             try {
                 switch (choice) {
-                    case "1" -> addMember();
-                    case "2" -> memberDao.listMembers();
-                    case "3" -> searchMember();
-                    case "4" -> updateMember();
-                    case "5" -> deactivateMember();
-                    case "6" -> addMembership();
-                    case "7" -> membershipDao.listMemberships();
-                    case "8" -> addFitnessInformation();
-                    case "9" -> fitnessDao.listFitnessInformation();
-                    case "10" -> dailySalesReport();
-                    case "11" -> monthlyIncomeSummary();
-                    case "12" -> auditLogDao.listLogs();
-                    case "13" -> {
+
+                    case 1 -> addMember();
+
+                    case 2 -> viewMembers();
+
+                    case 3 -> searchMember();
+
+                    case 4 -> updateMember();
+
+                    case 5 -> {
                         if (isAdministrator()) {
-                            new AdminMenu(userDao, scanner).start();
+                            deactivateMember();
                         } else {
-                            System.out.println("Access denied. Administrator only.");
+                            accessDenied();
                         }
                     }
-                    case "0" -> running = false;
-                    default -> System.out.println("Invalid option.");
+
+                    case 6 -> addMembership();
+
+                    case 7 -> viewMemberships();
+
+                    case 8 -> addFitnessInformation();
+
+                    case 9 -> viewFitnessInformation();
+
+                    case 10 -> {
+                        if (canViewReports()) {
+                            dailySalesReport();
+                        } else {
+                            accessDenied();
+                        }
+                    }
+
+                    case 11 -> {
+                        if (canViewReports()) {
+                            monthlyIncomeSummary();
+                        } else {
+                            accessDenied();
+                        }
+                    }
+
+                    case 12 -> {
+                        if (isAdministrator()) {
+                            viewAuditLogs();
+                        } else {
+                            accessDenied();
+                        }
+                    }
+
+                    case 13 -> {
+                        if (isAdministrator()) {
+                            new AdminMenu(userDao, scanner, currentUser).start();
+                        } else {
+                            accessDenied();
+                        }
+                    }
+
+                    case 0 -> {
+                        recordAction("Logged out");
+                        System.out.println("Logging out. Goodbye, "
+                                + currentUser.getUsername() + "!");
+                        running = false;
+                    }
+
+                    default -> System.out.println("Invalid option. Try again.");
                 }
 
             } catch (SQLException e) {
                 System.out.println("Database error: " + e.getMessage());
-
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid number. Please try again.");
             }
         }
-
-        System.out.println("You have logged out successfully.");
-    }
-
-    // ROLE CHECK
-    private boolean isAdministrator() {
-        return "Administrator".equalsIgnoreCase(currentUser.getRole());
-    }
-
-    private boolean isManager() {
-        return "Manager".equalsIgnoreCase(currentUser.getRole());
     }
 
     // DISPLAY MENU BASED ON ROLE
-    private void showMenu() {
+    private void displayMenu() {
 
-        System.out.println("\n========== MAIN MENU ==========");
+        String role = currentUser.getRole().toUpperCase();
+
+        System.out.println("\n======================================");
+        System.out.println("     GYM MEMBERSHIP AND FITNESS");
+        System.out.println("======================================");
+        System.out.println("Logged in as: " + currentUser.getUsername());
+        System.out.println("Role: " + currentUser.getRole());
+        System.out.println("--------------------------------------");
 
         System.out.println("1. Register Member");
         System.out.println("2. View Members");
         System.out.println("3. Search Member");
         System.out.println("4. Update Member");
 
-        if (isAdministrator()) {
+        if (role.equals("ADMINISTRATOR")) {
             System.out.println("5. Deactivate Member");
         }
 
@@ -112,55 +145,61 @@ public class ConsoleMenu {
         System.out.println("8. Add Fitness Information");
         System.out.println("9. View Fitness Information");
 
-        if (isAdministrator() || isManager()) {
+        if (canViewReports()) {
             System.out.println("10. Daily Sales Report");
             System.out.println("11. Monthly Income Summary");
         }
 
-        if (isAdministrator()) {
+        if (role.equals("ADMINISTRATOR")) {
             System.out.println("12. View Audit Logs");
             System.out.println("13. Manage User Accounts");
         }
 
         System.out.println("0. Logout");
+        System.out.println("======================================");
     }
 
     // REGISTER MEMBER
     private void addMember() throws SQLException {
 
-        System.out.println("\n===== REGISTER MEMBER =====");
+        System.out.println("\n========== REGISTER MEMBER ==========");
 
-        System.out.print("Member name: ");
+        System.out.print("Full Name: ");
         String name = scanner.nextLine();
 
         System.out.print("Age: ");
-        int age = Integer.parseInt(scanner.nextLine());
+        int age = readIntInput("");
 
         System.out.print("Gender: ");
         String gender = scanner.nextLine();
 
-        System.out.print("Phone: ");
+        System.out.print("Contact Number: ");
         String phone = scanner.nextLine();
 
         System.out.print("Email: ");
         String email = scanner.nextLine();
 
-        if (memberDao.addMember(name, age, gender, phone, email)) {
-            auditLogDao.recordAction(
-                    currentUser.getUsername(),
-                    "Registered member: " + name
-            );
+        memberDao.addMember(name, age, gender, phone, email);
 
-            System.out.println("Member registered successfully!");
-        } else {
-            System.out.println("Unable to register member.");
-        }
+        recordAction("Registered a new member: " + name);
+
+        System.out.println("Member registered successfully!");
+    }
+
+    // VIEW MEMBERS
+    private void viewMembers() throws SQLException {
+
+        System.out.println("\n========== MEMBER LIST ==========");
+
+        memberDao.listMembers();
     }
 
     // SEARCH MEMBER
     private void searchMember() throws SQLException {
 
-        System.out.print("\nEnter name, phone, or email: ");
+        System.out.println("\n========== SEARCH MEMBER ==========");
+
+        System.out.print("Enter member name or keyword: ");
         String keyword = scanner.nextLine();
 
         memberDao.searchMember(keyword);
@@ -169,160 +208,219 @@ public class ConsoleMenu {
     // UPDATE MEMBER
     private void updateMember() throws SQLException {
 
-        System.out.println("\n===== UPDATE MEMBER =====");
+        System.out.println("\n========== UPDATE MEMBER ==========");
 
-        System.out.print("Member ID: ");
-        int id = Integer.parseInt(scanner.nextLine());
+        int id = readIntInput("Enter Member ID: ");
 
-        System.out.print("New name: ");
+        System.out.print("New Full Name: ");
         String name = scanner.nextLine();
 
-        System.out.print("New age: ");
-        int age = Integer.parseInt(scanner.nextLine());
+        int age = readIntInput("New Age: ");
 
-        System.out.print("New gender: ");
+        System.out.print("New Gender: ");
         String gender = scanner.nextLine();
 
-        System.out.print("New phone: ");
+        System.out.print("New Contact Number: ");
         String phone = scanner.nextLine();
 
-        System.out.print("New email: ");
+        System.out.print("New Email: ");
         String email = scanner.nextLine();
 
-        if (memberDao.updateMember(id, name, age, gender, phone, email)) {
+        memberDao.updateMember(id, name, age, gender, phone, email);
 
-            auditLogDao.recordAction(
-                    currentUser.getUsername(),
-                    "Updated member ID: " + id
-            );
+        recordAction("Updated member ID: " + id);
 
-            System.out.println("Member updated successfully!");
-
-        } else {
-            System.out.println("Member not found.");
-        }
+        System.out.println("Member information updated.");
     }
 
-    // DEACTIVATE MEMBER
+    // DEACTIVATE MEMBER - ADMINISTRATOR ONLY
     private void deactivateMember() throws SQLException {
 
-        if (!isAdministrator()) {
-            System.out.println("Access denied.");
-            return;
-        }
+        System.out.println("\n========== DEACTIVATE MEMBER ==========");
 
-        System.out.print("\nEnter Member ID to deactivate: ");
-        int id = Integer.parseInt(scanner.nextLine());
+        int id = readIntInput("Enter Member ID to deactivate: ");
 
-        if (memberDao.deactivateMember(id)) {
+        memberDao.deactivateMember(id);
 
-            auditLogDao.recordAction(
-                    currentUser.getUsername(),
-                    "Deactivated member ID: " + id
-            );
+        recordAction("Deactivated member ID: " + id);
 
-            System.out.println("Member deactivated successfully!");
-
-        } else {
-            System.out.println("Member not found.");
-        }
+        System.out.println("Member deactivation request completed.");
     }
 
     // ADD MEMBERSHIP
     private void addMembership() throws SQLException {
 
-        System.out.println("\n===== ADD MEMBERSHIP =====");
+        System.out.println("\n========== ADD MEMBERSHIP ==========");
 
-        System.out.print("Member ID: ");
-        int memberId = Integer.parseInt(scanner.nextLine());
+        int memberId = readIntInput("Enter Member ID: ");
 
-        System.out.print("Membership plan: ");
+        System.out.print("Membership Type: ");
         String plan = scanner.nextLine();
 
-        System.out.print("Start date (YYYY-MM-DD): ");
+        System.out.print("Start Date (YYYY-MM-DD): ");
         String startDate = scanner.nextLine();
 
-        System.out.print("End date (YYYY-MM-DD): ");
+        System.out.print("End Date (YYYY-MM-DD): ");
         String endDate = scanner.nextLine();
 
-        System.out.print("Membership fee (PHP): ");
-        double fee = Double.parseDouble(scanner.nextLine());
+        double fee = readDoubleInput("Membership Fee: ");
 
-        if (membershipDao.addMembership(
-                memberId, plan, startDate, endDate, fee)) {
+        membershipDao.addMembership(
+                memberId, plan, startDate, endDate, fee
+        );
 
-            auditLogDao.recordAction(
-                    currentUser.getUsername(),
-                    "Added membership for member ID: " + memberId
-            );
+        recordAction("Added membership for member ID: " + memberId);
 
-            System.out.println("Membership added successfully!");
+        System.out.println("Membership added successfully!");
+    }
 
-        } else {
-            System.out.println("Unable to add membership.");
-        }
+    // VIEW MEMBERSHIPS
+    private void viewMemberships() throws SQLException {
+
+        System.out.println("\n========== MEMBERSHIP LIST ==========");
+
+        membershipDao.listMemberships();
     }
 
     // ADD FITNESS INFORMATION
     private void addFitnessInformation() throws SQLException {
 
-        System.out.println("\n===== ADD FITNESS INFORMATION =====");
+        System.out.println("\n========== ADD FITNESS INFORMATION ==========");
 
-        System.out.print("Member ID: ");
-        int memberId = Integer.parseInt(scanner.nextLine());
+        int memberId = readIntInput("Enter Member ID: ");
 
-        System.out.print("Weight (kg): ");
-        double weight = Double.parseDouble(scanner.nextLine());
+        double weight = readDoubleInput("Weight (kg): ");
 
-        System.out.print("Height (cm): ");
-        double height = Double.parseDouble(scanner.nextLine());
+        double height = readDoubleInput("Height (cm): ");
 
-        System.out.print("Fitness goal: ");
+        System.out.print("Fitness Goal: ");
         String goal = scanner.nextLine();
 
-        System.out.print("Notes: ");
-        String notes = scanner.nextLine();
+        System.out.print("Fitness Level: ");
+        String fitnessLevel = scanner.nextLine();
 
-        if (fitnessDao.addFitnessInformation(
-                memberId, weight, height, goal, notes)) {
+        fitnessDao.addFitnessInformation(
+                memberId, weight, height, goal, fitnessLevel
+        );
 
-            auditLogDao.recordAction(
-                    currentUser.getUsername(),
-                    "Added fitness information for member ID: " + memberId
-            );
+        recordAction("Added fitness information for member ID: " + memberId);
 
-            System.out.println("Fitness information saved!");
-
-        } else {
-            System.out.println("Unable to save fitness information.");
-        }
+        System.out.println("Fitness information saved successfully!");
     }
 
-    // DAILY SALES REPORT
+    // VIEW FITNESS INFORMATION
+    private void viewFitnessInformation() throws SQLException {
+
+        System.out.println("\n========== FITNESS INFORMATION ==========");
+
+        fitnessDao.listFitnessInformation();
+    }
+
+    // DAILY SALES REPORT - MANAGER AND ADMINISTRATOR
     private void dailySalesReport() throws SQLException {
 
-        if (!isAdministrator() && !isManager()) {
-            System.out.println("Access denied.");
-            return;
-        }
+        System.out.println("\n========== DAILY SALES REPORT ==========");
 
-        System.out.print("\nDate (YYYY-MM-DD): ");
+        System.out.print("Enter Date (YYYY-MM-DD): ");
         String date = scanner.nextLine();
 
         reportDao.dailySalesReport(date);
+
+        recordAction("Viewed Daily Sales Report for " + date);
     }
 
-    // MONTHLY INCOME SUMMARY
+    // MONTHLY INCOME SUMMARY - MANAGER AND ADMINISTRATOR
     private void monthlyIncomeSummary() throws SQLException {
 
-        if (!isAdministrator() && !isManager()) {
-            System.out.println("Access denied.");
-            return;
-        }
+        System.out.println("\n========== MONTHLY INCOME SUMMARY ==========");
 
-        System.out.print("\nMonth (YYYY-MM): ");
+        System.out.print("Enter Month (YYYY-MM): ");
         String month = scanner.nextLine();
 
         reportDao.monthlyIncomeSummary(month);
+
+        recordAction("Viewed Monthly Income Summary for " + month);
+    }
+
+    // VIEW AUDIT LOGS - ADMINISTRATOR ONLY
+    private void viewAuditLogs() throws SQLException {
+
+        System.out.println("\n========== SYSTEM AUDIT LOGS ==========");
+
+        auditLogDao.listLogs();
+
+        recordAction("Viewed system audit logs");
+    }
+
+    // RECORD USER ACTION
+    private void recordAction(String action) {
+
+        try {
+            auditLogDao.recordAction(
+                    currentUser.getUsername(),
+                    action
+            );
+        } catch (SQLException e) {
+            System.out.println("Unable to record audit log: "
+                    + e.getMessage());
+        }
+    }
+
+    // ROLE CHECKS
+    private boolean isAdministrator() {
+        return currentUser.getRole()
+                .equalsIgnoreCase("ADMINISTRATOR");
+    }
+
+    private boolean canViewReports() {
+
+        String role = currentUser.getRole();
+
+        return role.equalsIgnoreCase("ADMINISTRATOR")
+                || role.equalsIgnoreCase("MANAGER");
+    }
+
+    private void accessDenied() {
+        System.out.println("Access denied. You do not have permission.");
+    }
+
+    // INTEGER INPUT VALIDATION
+    private int readIntInput(String prompt) {
+
+        while (true) {
+
+            System.out.print(prompt);
+
+            String input = scanner.nextLine().trim();
+
+            try {
+                return Integer.parseInt(input);
+
+            } catch (NumberFormatException e) {
+                System.out.println(
+                        "Invalid input. Please enter a valid number."
+                );
+            }
+        }
+    }
+
+    // DECIMAL INPUT VALIDATION
+    private double readDoubleInput(String prompt) {
+
+        while (true) {
+
+            System.out.print(prompt);
+
+            String input = scanner.nextLine().trim();
+
+            try {
+                return Double.parseDouble(input);
+
+            } catch (NumberFormatException e) {
+                System.out.println(
+                        "Invalid input. Please enter a valid amount or number."
+                );
+            }
+        }
     }
 }
