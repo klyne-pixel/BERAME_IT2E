@@ -2,7 +2,6 @@
 package dao;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -69,7 +68,7 @@ public class DatabaseInitializer {
                 )
                 """);
 
-            // AUDIT LOGS TABLE
+            // EXISTING AUDIT LOGS TABLE
             statement.execute("""
                 CREATE TABLE IF NOT EXISTS audit_logs (
                     log_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,6 +78,20 @@ public class DatabaseInitializer {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id)
                         REFERENCES users(id)
+                )
+                """);
+
+            // NEW ACTIVITY LOGS TABLE - DELIVERABLE 8
+            statement.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    action_type TEXT NOT NULL,
+                    description TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id)
+                        REFERENCES users(id)
+                        ON DELETE SET NULL
                 )
                 """);
 
@@ -95,6 +108,7 @@ public class DatabaseInitializer {
 
             System.out.println("Database initialized successfully.");
             System.out.println("Default Administrator account is ready.");
+            System.out.println("Activity Logs table is ready.");
 
         } catch (SQLException e) {
             System.err.println("Database initialization failed: "

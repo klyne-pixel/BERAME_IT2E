@@ -16,6 +16,7 @@ public class ConsoleMenu {
     private final FitnessDao fitnessDao;
     private final ReportDao reportDao;
     private final AuditLogDao auditLogDao;
+    private final ActivityLogDao activityLogDao;
 
     private final User currentUser;
 
@@ -29,6 +30,7 @@ public class ConsoleMenu {
         this.fitnessDao = new FitnessDao();
         this.reportDao = new ReportDao();
         this.auditLogDao = new AuditLogDao();
+        this.activityLogDao = new ActivityLogDao();
     }
 
     // MAIN MENU
@@ -179,11 +181,16 @@ public class ConsoleMenu {
         System.out.print("Email: ");
         String email = scanner.nextLine();
 
-        memberDao.addMember(name, age, gender, phone, email);
+        boolean success = memberDao.addMember(
+                name, age, gender, phone, email
+        );
 
-        recordAction("Registered a new member: " + name);
-
-        System.out.println("Member registered successfully!");
+        if (success) {
+            recordAction("Registered a new member: " + name);
+            System.out.println("Member registered successfully!");
+        } else {
+            System.out.println("Failed to register member.");
+        }
     }
 
     // VIEW MEMBERS
@@ -226,11 +233,16 @@ public class ConsoleMenu {
         System.out.print("New Email: ");
         String email = scanner.nextLine();
 
-        memberDao.updateMember(id, name, age, gender, phone, email);
+        boolean success = memberDao.updateMember(
+                id, name, age, gender, phone, email
+        );
 
-        recordAction("Updated member ID: " + id);
-
-        System.out.println("Member information updated.");
+        if (success) {
+            recordAction("Updated member ID: " + id);
+            System.out.println("Member information updated.");
+        } else {
+            System.out.println("Failed to update member.");
+        }
     }
 
     // DEACTIVATE MEMBER - ADMINISTRATOR ONLY
@@ -240,11 +252,14 @@ public class ConsoleMenu {
 
         int id = readIntInput("Enter Member ID to deactivate: ");
 
-        memberDao.deactivateMember(id);
+        boolean success = memberDao.deactivateMember(id);
 
-        recordAction("Deactivated member ID: " + id);
-
-        System.out.println("Member deactivation request completed.");
+        if (success) {
+            recordAction("Deactivated member ID: " + id);
+            System.out.println("Member deactivated successfully.");
+        } else {
+            System.out.println("Failed to deactivate member.");
+        }
     }
 
     // ADD MEMBERSHIP
@@ -352,9 +367,10 @@ public class ConsoleMenu {
         recordAction("Viewed system audit logs");
     }
 
-    // RECORD USER ACTION
+    // RECORD USER ACTION IN BOTH LOG TABLES
     private void recordAction(String action) {
 
+        // Existing audit_logs table
         try {
             auditLogDao.recordAction(
                     currentUser.getUsername(),
@@ -362,6 +378,54 @@ public class ConsoleMenu {
             );
         } catch (SQLException e) {
             System.out.println("Unable to record audit log: "
+                    + e.getMessage());
+        }
+
+        // New activity_logs table
+        try {
+
+            String actionType;
+
+            if (action.startsWith("Logged in")) {
+                actionType = "USER_LOGIN";
+
+            } else if (action.startsWith("Logged out")) {
+                actionType = "USER_LOGOUT";
+
+            } else if (action.startsWith("Registered")) {
+                actionType = "MEMBER_REGISTERED";
+
+            } else if (action.startsWith("Updated member")) {
+                actionType = "MEMBER_UPDATED";
+
+            } else if (action.startsWith("Deactivated")) {
+                actionType = "MEMBER_DEACTIVATED";
+
+            } else if (action.startsWith("Added membership")) {
+                actionType = "MEMBERSHIP_CREATED";
+
+            } else if (action.startsWith("Added fitness")) {
+                actionType = "FITNESS_INFO_ADDED";
+
+            } else if (action.startsWith("Viewed Daily")
+                    || action.startsWith("Viewed Monthly")) {
+                actionType = "REPORT_VIEWED";
+
+            } else if (action.startsWith("Viewed system")) {
+                actionType = "AUDIT_LOGS_VIEWED";
+
+            } else {
+                actionType = "SYSTEM_ACTION";
+            }
+
+            activityLogDao.logAction(
+                    currentUser.getId(),
+                    actionType,
+                    action
+            );
+
+        } catch (RuntimeException e) {
+            System.out.println("Unable to record activity: "
                     + e.getMessage());
         }
     }

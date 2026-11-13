@@ -2,7 +2,9 @@
 package ui;
 
 import dao.UserDao;
+import dao.ActivityLogDao;
 import model.User;
+import model.ActivityLog;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.Scanner;
 public class AdminMenu {
 
     private final UserDao userDao;
+    private final ActivityLogDao activityLogDao;
     private final Scanner scanner;
     private final User currentAdmin;
 
@@ -18,6 +21,7 @@ public class AdminMenu {
         this.userDao = userDao;
         this.scanner = scanner;
         this.currentAdmin = currentAdmin;
+        this.activityLogDao = new ActivityLogDao();
     }
 
     public void start() {
@@ -31,6 +35,9 @@ public class AdminMenu {
             System.out.println("2. View Pending Users");
             System.out.println("3. Approve User Account");
             System.out.println("4. Update User Role and Status");
+            System.out.println("5. View All Activity Logs");
+            System.out.println("6. Filter Activity Logs by User ID");
+            System.out.println("7. Clear Historical Activity Logs");
             System.out.println("0. Back");
 
             int choice = readIntInput("Choose an option (0 to cancel): ");
@@ -45,6 +52,12 @@ public class AdminMenu {
                     case 3 -> approveUser();
 
                     case 4 -> updateUser();
+
+                    case 5 -> viewAllActivityLogs();
+
+                    case 6 -> filterActivityLogs();
+
+                    case 7 -> clearActivityLogs();
 
                     case 0 -> running = false;
 
@@ -129,7 +142,14 @@ public class AdminMenu {
         }
 
         if (userDao.approveUser(userId)) {
+
+            logActivity(
+                    "USER_APPROVED",
+                    "Administrator approved user ID: " + userId
+            );
+
             System.out.println("User account approved successfully!");
+
         } else {
             System.out.println("Approval failed.");
         }
@@ -197,9 +217,150 @@ public class AdminMenu {
         );
 
         if (updated) {
+
+            logActivity(
+                    "USER_UPDATED",
+                    "Updated user ID: " + userId
+                            + ", Role: " + newRole
+                            + ", Status: " + newStatus
+            );
+
             System.out.println("User role and status updated successfully!");
+
         } else {
             System.out.println("Update failed. User may no longer exist.");
+        }
+    }
+
+    // VIEW ALL ACTIVITY LOGS
+    private void viewAllActivityLogs() {
+
+        System.out.println("\n========== ALL ACTIVITY LOGS ==========");
+
+        try {
+            List<ActivityLog> logs = activityLogDao.getAllLogs();
+
+            displayActivityLogs(logs);
+
+            logActivity(
+                    "ACTIVITY_LOGS_VIEWED",
+                    "Administrator viewed all activity logs"
+            );
+
+        } catch (RuntimeException e) {
+            System.out.println("Unable to retrieve activity logs: "
+                    + e.getMessage());
+        }
+    }
+
+    // FILTER ACTIVITY LOGS BY USER ID
+    private void filterActivityLogs() {
+
+        System.out.println("\n========== FILTER ACTIVITY LOGS ==========");
+
+        int userId = readIntInput("Enter User ID to filter (0 to cancel): ");
+
+        if (userId == 0) {
+            System.out.println("Operation cancelled.");
+            return;
+        }
+
+        try {
+            List<ActivityLog> logs = activityLogDao.getLogsByUserId(userId);
+
+            displayActivityLogs(logs);
+
+            logActivity(
+                    "ACTIVITY_LOGS_FILTERED",
+                    "Administrator filtered activity logs for User ID: " + userId
+            );
+
+        } catch (RuntimeException e) {
+            System.out.println("Unable to retrieve activity logs: "
+                    + e.getMessage());
+        }
+    }
+
+    // DISPLAY ACTIVITY LOGS
+    private void displayActivityLogs(List<ActivityLog> logs) {
+
+        if (logs.isEmpty()) {
+            System.out.println("No activity logs found.");
+            return;
+        }
+
+        System.out.printf(
+                "%-5s | %-8s | %-18s | %-35s | %-20s%n",
+                "ID",
+                "USER ID",
+                "ACTION TYPE",
+                "DESCRIPTION",
+                "TIMESTAMP"
+        );
+
+        System.out.println("---------------------------------------------------------------------------------------------------------------");
+
+        for (ActivityLog log : logs) {
+
+            System.out.printf(
+                    "%-5d | %-8d | %-18s | %-35s | %-20s%n",
+                    log.getId(),
+                    log.getUserId(),
+                    log.getActionType(),
+                    log.getDescription(),
+                    log.getTimestamp()
+            );
+        }
+
+        System.out.println("---------------------------------------------------------------------------------------------------------------");
+    }
+
+    // CLEAR HISTORICAL ACTIVITY LOGS
+    private void clearActivityLogs() {
+
+        System.out.println("\n========== CLEAR ACTIVITY LOGS ==========");
+        System.out.println("WARNING: This will permanently delete all historical activity logs.");
+
+        System.out.print("Type CLEAR to confirm: ");
+
+        String confirmation = scanner.nextLine().trim();
+
+        if (!confirmation.equals("CLEAR")) {
+            System.out.println("Operation cancelled. No logs were deleted.");
+            return;
+        }
+
+        try {
+
+            activityLogDao.clearAllLogs();
+
+            System.out.println("Historical activity logs cleared successfully.");
+
+            // Record the clearing action after deleting old logs
+            logActivity(
+                    "ACTIVITY_LOGS_CLEARED",
+                    "Administrator cleared historical activity logs"
+            );
+
+        } catch (RuntimeException e) {
+            System.out.println("Unable to clear activity logs: "
+                    + e.getMessage());
+        }
+    }
+
+    // RECORD ADMIN ACTIVITY
+    private void logActivity(String actionType, String description) {
+
+        try {
+            activityLogDao.logAction(
+                    currentAdmin.getId(),
+                    actionType,
+                    description
+            );
+
+        } catch (RuntimeException e) {
+            System.out.println("Unable to record activity: "
+                    + e.getMessage());
         }
     }
 

@@ -16,10 +16,10 @@ public class UserDao {
     public User login(String username, String password) throws SQLException {
 
         String sql = """
-            SELECT id, username, password, role, status
-            FROM users
-            WHERE username = ? AND password = ?
-        """;
+                SELECT id, username, password, role, status
+                FROM users
+                WHERE username = ? AND password = ?
+                """;
 
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -28,6 +28,7 @@ public class UserDao {
             ps.setString(2, password);
 
             try (ResultSet rs = ps.executeQuery()) {
+
                 if (rs.next()) {
                     return new User(
                             rs.getInt("id"),
@@ -47,17 +48,31 @@ public class UserDao {
     public boolean addUser(String username, String password, String role)
             throws SQLException {
 
+        if (username == null || username.isBlank()
+                || password == null || password.isBlank()
+                || role == null || role.isBlank()) {
+            return false;
+        }
+
+        String normalizedRole = role.toUpperCase();
+
+        if (!normalizedRole.equals("ADMINISTRATOR")
+                && !normalizedRole.equals("STAFF")
+                && !normalizedRole.equals("MANAGER")) {
+            return false;
+        }
+
         String sql = """
-            INSERT INTO users (username, password, role, status)
-            VALUES (?, ?, ?, 'PENDING')
-        """;
+                INSERT INTO users (username, password, role, status)
+                VALUES (?, ?, ?, 'PENDING')
+                """;
 
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
-            ps.setString(1, username);
+            ps.setString(1, username.trim());
             ps.setString(2, password);
-            ps.setString(3, role.toUpperCase());
+            ps.setString(3, normalizedRole);
 
             return ps.executeUpdate() > 0;
         }
@@ -69,10 +84,10 @@ public class UserDao {
         List<User> users = new ArrayList<>();
 
         String sql = """
-            SELECT id, username, role, status
-            FROM users
-            ORDER BY id
-        """;
+                SELECT id, username, role, status
+                FROM users
+                ORDER BY id
+                """;
 
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -98,27 +113,24 @@ public class UserDao {
         List<User> users = new ArrayList<>();
 
         String sql = """
-            SELECT id, username, role, status
-            FROM users
-            WHERE UPPER(status) = ?
-            ORDER BY id
-        """;
+                SELECT id, username, role, status
+                FROM users
+                WHERE UPPER(status) = 'PENDING'
+                ORDER BY id
+                """;
 
         try (Connection con = DatabaseConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
-            ps.setString(1, "PENDING");
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    users.add(new User(
-                            rs.getInt("id"),
-                            rs.getString("username"),
-                            "",
-                            rs.getString("role"),
-                            rs.getString("status")
-                    ));
-                }
+            while (rs.next()) {
+                users.add(new User(
+                        rs.getInt("id"),
+                        rs.getString("username"),
+                        "",
+                        rs.getString("role"),
+                        rs.getString("status")
+                ));
             }
         }
 
@@ -129,10 +141,10 @@ public class UserDao {
     public boolean approveUser(int userId) throws SQLException {
 
         String sql = """
-            UPDATE users
-            SET status = 'APPROVED'
-            WHERE id = ? AND UPPER(status) = 'PENDING'
-        """;
+                UPDATE users
+                SET status = 'APPROVED'
+                WHERE id = ? AND UPPER(status) = 'PENDING'
+                """;
 
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -148,17 +160,35 @@ public class UserDao {
             int userId, String newRole, String newStatus)
             throws SQLException {
 
+        if (newRole == null || newStatus == null) {
+            return false;
+        }
+
+        String role = newRole.toUpperCase();
+        String status = newStatus.toUpperCase();
+
+        if (!role.equals("ADMINISTRATOR")
+                && !role.equals("STAFF")
+                && !role.equals("MANAGER")) {
+            return false;
+        }
+
+        if (!status.equals("APPROVED")
+                && !status.equals("PENDING")) {
+            return false;
+        }
+
         String sql = """
-            UPDATE users
-            SET role = ?, status = ?
-            WHERE id = ?
-        """;
+                UPDATE users
+                SET role = ?, status = ?
+                WHERE id = ?
+                """;
 
         try (Connection con = DatabaseConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
-            ps.setString(1, newRole.toUpperCase());
-            ps.setString(2, newStatus.toUpperCase());
+            ps.setString(1, role);
+            ps.setString(2, status);
             ps.setInt(3, userId);
 
             return ps.executeUpdate() > 0;
